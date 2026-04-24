@@ -94,3 +94,28 @@ export type ChatMessage = {
   content: string;
   createdAt: number;
 };
+
+export type TaskKind = 'workout' | 'nutrition' | 'study';
+
+export type DailyEntry = {
+  /** ISO date string, YYYY-MM-DD, device-local. */
+  date: string;
+  tasks: Record<TaskKind, boolean>;
+  waterCups: number;
+};
+
+export type StreakState = {
+  current: number;
+  /** ISO date of the last day that contributed to the streak. */
+  lastActiveDate: string | null;
+};
+
+export type PhaseInfo = {
+  phase: CyclePhase;
+  dayInCycle: number;
+  dayInPhase: number;
+  phaseLength: number;
+  /** Energy %, per spec §7.1. */
+  energy: number;
+  cycleLength: number;
+};
