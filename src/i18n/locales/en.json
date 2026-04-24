@@ -1,0 +1,40 @@
+{
+  "app": {
+    "name": "Eleve",
+    "tagline": "The AI that organizes your life for you"
+  },
+  "screens": {
+    "today": "Today",
+    "luna": "Luna",
+    "workout": "Workout",
+    "calendar": "Calendar",
+    "progress": "Progress",
+    "body": "Body"
+  },
+  "onboarding": {
+    "welcome": "Welcome",
+    "subtitle": "Let us get to know you — better than you know yourself.",
+    "skipToApp": "Explore the app (dev)"
+  },
+  "cycle": {
+    "phase": {
+      "menstrual": "Menstrual",
+      "follicular": "Follicular",
+      "ovulation": "Ovulation",
+      "luteal": "Luteal"
+    },
+    "energy": "Energy"
+  },
+  "tasks": {
+    "workout": "Workout",
+    "nutrition": "Nutrition",
+    "study": "Study",
+    "water": "Water"
+  },
+  "common": {
+    "continue": "Continue",
+    "skip": "Skip",
+    "done": "Done",
+    "cancel": "Cancel"
+  }
+}
