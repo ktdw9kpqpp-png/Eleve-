@@ -102,6 +102,12 @@ export type DailyEntry = {
   date: string;
   tasks: Record<TaskKind, boolean>;
   waterCups: number;
+  /** Luna-managed daily overrides from detected intents (§4.2). */
+  plannedWorkoutType: WorkoutType | null;
+  plannedIntensity: Intensity | null;
+  plannedLocation: Location | null;
+  /** Short human-readable reason for the current override (for UI hints). */
+  planNote: string | null;
 };
 
 export type StreakState = {

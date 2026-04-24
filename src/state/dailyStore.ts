@@ -1,10 +1,16 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { DailyEntry, StreakState, TaskKind } from '@/types/domain';
+import type { BodyPart, Intent } from '@/services/nlu';
 import { todayIso, yesterdayIso } from '@/utils/cycle';
 import { zustandStorage } from './storage';
 
 export const WATER_GOAL_CUPS = 8;
+
+export type IntentEffect = {
+  applied: boolean;
+  note?: string;
+};
 
 type DailyState = {
   entries: Record<string, DailyEntry>;
@@ -14,6 +20,9 @@ type DailyState = {
   toggleTask: (kind: TaskKind) => void;
   addWater: (cups?: number) => void;
   resetWater: () => void;
+  /** Apply a detected intent to today's entry. Returns whether state changed. */
+  applyIntent: (intent: Intent) => IntentEffect;
+  clearPlan: () => void;
   _bumpStreakIfNeeded: () => void;
 };
 
@@ -22,6 +31,10 @@ function emptyEntry(date: string): DailyEntry {
     date,
     tasks: { workout: false, nutrition: false, study: false },
     waterCups: 0,
+    plannedWorkoutType: null,
+    plannedIntensity: null,
+    plannedLocation: null,
+    planNote: null,
   };
 }
 
@@ -74,6 +87,35 @@ export const useDailyStore = create<DailyState>()(
         });
       },
 
+      applyIntent: (intent) => {
+        const today = todayIso();
+        const current = get().entries[today] ?? emptyEntry(today);
+        const patch = intentToPatch(intent);
+        if (!patch) return { applied: false };
+        const next: DailyEntry = { ...current, ...patch };
+        set((s) => ({ entries: { ...s.entries, [today]: next } }));
+        return { applied: true, note: patch.planNote ?? undefined };
+      },
+
+      clearPlan: () => {
+        const today = todayIso();
+        set((s) => {
+          const current = s.entries[today] ?? emptyEntry(today);
+          return {
+            entries: {
+              ...s.entries,
+              [today]: {
+                ...current,
+                plannedWorkoutType: null,
+                plannedIntensity: null,
+                plannedLocation: null,
+                planNote: null,
+              },
+            },
+          };
+        });
+      },
+
       _bumpStreakIfNeeded: () => {
         const today = todayIso();
         const entry = get().entries[today];
@@ -96,3 +138,71 @@ export const useDailyStore = create<DailyState>()(
     },
   ),
 );
+
+type EntryPatch = Partial<
+  Pick<DailyEntry, 'plannedWorkoutType' | 'plannedIntensity' | 'plannedLocation' | 'planNote'>
+>;
+
+/**
+ * Map a detected intent to a DailyEntry patch. Only workout-affecting intents
+ * produce a patch; informational intents (questions, cravings) return null so
+ * the UI can still react but the daily plan is untouched.
+ */
+function intentToPatch(intent: Intent): EntryPatch | null {
+  switch (intent.kind) {
+    case 'focus':
+      return {
+        plannedWorkoutType: intent.type,
+        plannedIntensity: null,
+        planNote: `${intent.type} üzerine odaklanma`,
+      };
+    case 'tired':
+      return {
+        plannedWorkoutType: 'restorative',
+        plannedIntensity: 'low',
+        planNote: intent.scope === 'week' ? 'Bu hafta toparlanma önceliği' : 'Bugün toparlanma',
+      };
+    case 'injury': {
+      const safeType = injurySafeWorkout(intent.bodyPart);
+      return {
+        plannedWorkoutType: safeType,
+        plannedIntensity: 'low',
+        planNote: `${intent.bodyPart} koruma — ${safeType}`,
+      };
+    }
+    case 'location_change':
+      return {
+        plannedLocation: intent.location,
+        planNote: `Lokasyon: ${intent.location}`,
+      };
+    case 'reschedule':
+    case 'missed_session':
+    case 'overate':
+    case 'sweet_craving':
+    case 'question_cycle':
+    case 'question_workout':
+    case 'none':
+      return null;
+  }
+}
+
+function injurySafeWorkout(part: BodyPart) {
+  switch (part) {
+    case 'shoulder':
+    case 'back':
+    case 'neck':
+    case 'elbow':
+    case 'wrist':
+      // Upper-body issues → lower-body / low-impact cardio.
+      return 'walk' as const;
+    case 'knee':
+    case 'ankle':
+    case 'hip':
+      // Lower-body joint issues → water-based if possible, else restorative.
+      return 'swim' as const;
+    case 'lower-back':
+      return 'restorative' as const;
+    default:
+      return 'restorative' as const;
+  }
+}
