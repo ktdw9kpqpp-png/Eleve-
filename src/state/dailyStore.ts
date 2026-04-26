@@ -23,6 +23,10 @@ type DailyState = {
   /** Apply a detected intent to today's entry. Returns whether state changed. */
   applyIntent: (intent: Intent) => IntentEffect;
   clearPlan: () => void;
+  /** Pin a workout for today; clears exercise progress when the id changes. */
+  setSelectedWorkout: (id: string, totalExercises: number) => void;
+  /** Toggle an exercise; auto-completes the workout task when all are done. */
+  toggleExercise: (index: number, totalExercises: number) => void;
   _bumpStreakIfNeeded: () => void;
 };
 
@@ -35,6 +39,8 @@ function emptyEntry(date: string): DailyEntry {
     plannedIntensity: null,
     plannedLocation: null,
     planNote: null,
+    selectedWorkoutId: null,
+    exerciseProgress: {},
   };
 }
 
@@ -92,9 +98,55 @@ export const useDailyStore = create<DailyState>()(
         const current = get().entries[today] ?? emptyEntry(today);
         const patch = intentToPatch(intent);
         if (!patch) return { applied: false };
-        const next: DailyEntry = { ...current, ...patch };
+        // If the override changes the planned type or location, invalidate the
+        // current pick so the Workout screen re-runs selection.
+        const invalidates =
+          (patch.plannedWorkoutType !== undefined &&
+            patch.plannedWorkoutType !== current.plannedWorkoutType) ||
+          (patch.plannedLocation !== undefined &&
+            patch.plannedLocation !== current.plannedLocation);
+        const next: DailyEntry = {
+          ...current,
+          ...patch,
+          ...(invalidates ? { selectedWorkoutId: null, exerciseProgress: {} } : {}),
+        };
         set((s) => ({ entries: { ...s.entries, [today]: next } }));
         return { applied: true, note: patch.planNote ?? undefined };
+      },
+
+      setSelectedWorkout: (id, totalExercises) => {
+        const today = todayIso();
+        set((s) => {
+          const current = s.entries[today] ?? emptyEntry(today);
+          if (current.selectedWorkoutId === id) return s;
+          const next: DailyEntry = {
+            ...current,
+            selectedWorkoutId: id,
+            exerciseProgress: {},
+          };
+          return { entries: { ...s.entries, [today]: next } };
+        });
+        void totalExercises; // accepted for symmetry; reset clears all
+      },
+
+      toggleExercise: (index, totalExercises) => {
+        const today = todayIso();
+        set((s) => {
+          const current = s.entries[today] ?? emptyEntry(today);
+          const wasDone = current.exerciseProgress[index] === true;
+          const nextProgress = { ...current.exerciseProgress, [index]: !wasDone };
+          const allDone =
+            totalExercises > 0 &&
+            Array.from({ length: totalExercises }, (_, i) => nextProgress[i] === true).every(Boolean);
+          const next: DailyEntry = {
+            ...current,
+            exerciseProgress: nextProgress,
+            tasks: allDone ? { ...current.tasks, workout: true } : current.tasks,
+          };
+          return { entries: { ...s.entries, [today]: next } };
+        });
+        // Bump the streak if the auto-complete just flipped the workout task.
+        get()._bumpStreakIfNeeded();
       },
 
       clearPlan: () => {

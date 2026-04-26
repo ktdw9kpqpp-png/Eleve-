@@ -108,6 +108,9 @@ export type DailyEntry = {
   plannedLocation: Location | null;
   /** Short human-readable reason for the current override (for UI hints). */
   planNote: string | null;
+  /** Workout chosen for today (catalog id) and per-exercise completion. */
+  selectedWorkoutId: string | null;
+  exerciseProgress: Record<number, boolean>;
 };
 
 export type StreakState = {
