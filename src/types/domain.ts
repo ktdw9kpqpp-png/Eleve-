@@ -38,6 +38,9 @@ export type Workout = {
   calories: number;
   phase: CyclePhase[];
   exercises: Exercise[];
+  /** Recovery workouts that bypass the location filter — they can be done
+   * anywhere (e.g., restorative, yin yoga, walking). */
+  alwaysAvailable?: boolean;
 };
 
 export type DietaryPreference = 'vegetarian' | 'vegan' | 'gluten-free' | 'none';

@@ -63,11 +63,19 @@ function passesHardFilters(
   today: DailyEntry,
   relaxForOverride: boolean,
 ): boolean {
-  // Location: respect today's override first, then the profile default. When a
-  // Luna override is active we relax the profile-default location since the
-  // override implies the user is already adapting (e.g., "I'm tired" → home).
-  const desiredLocation = today.plannedLocation ?? (relaxForOverride ? null : profile.workoutLocation ?? null);
-  if (desiredLocation && !w.location.includes(desiredLocation)) return false;
+  // Location filter rules (in order):
+  //   1. alwaysAvailable workouts (restorative, yin yoga, walking) are
+  //      universal recovery — they bypass the location filter unconditionally.
+  //   2. If Luna pinned today.plannedLocation, that's the truth.
+  //   3. Otherwise use the profile default — UNLESS a Luna override is active,
+  //      in which case we relax the location too (a "tired" override might
+  //      shift you from gym to home naturally).
+  if (!w.alwaysAvailable) {
+    const desiredLocation =
+      today.plannedLocation ??
+      (relaxForOverride ? null : profile.workoutLocation ?? null);
+    if (desiredLocation && !w.location.includes(desiredLocation)) return false;
+  }
 
   // Level cap: never push someone above their declared level.
   const userLevel = profile.fitnessLevel ?? 'beginner';

@@ -79,6 +79,7 @@ export const WORKOUTS: Workout[] = [
     level: 'beginner',
     calories: 110,
     phase: ['menstrual', 'luteal'],
+    alwaysAvailable: true,
     exercises: [
       { name: 'Kelebek', sets: 1, reps: '3 dk hold', rest: '30 sn', note: 'Yerçekimine bırak' },
       { name: 'Tırtıl (caterpillar)', sets: 1, reps: '3 dk hold', rest: '30 sn' },
@@ -258,6 +259,7 @@ export const WORKOUTS: Workout[] = [
     level: 'beginner',
     calories: 150,
     phase: ['menstrual', 'follicular', 'ovulation', 'luteal'],
+    alwaysAvailable: true,
     exercises: [
       { name: 'Kolay tempo', sets: 1, reps: '10 dk', rest: '0 sn' },
       { name: 'Hızlı yürüyüş', sets: 1, reps: '20 dk', rest: '0 sn', note: 'Nefes artar ama zorlanmaz' },
@@ -274,6 +276,7 @@ export const WORKOUTS: Workout[] = [
     level: 'beginner',
     calories: 90,
     phase: ['menstrual', 'follicular', 'ovulation', 'luteal'],
+    alwaysAvailable: true,
     exercises: [
       { name: 'Kutu nefes', sets: 1, reps: '3 dk', rest: '0 sn', note: '4 in - 4 hold - 4 out - 4 hold' },
       { name: 'Destekli çocuk pozu', sets: 1, reps: '5 dk', rest: '0 sn' },
