@@ -6,12 +6,15 @@ import { Text } from '@/components/Text';
 import { useTheme } from '@/theme';
 import { findWorkoutById } from '@/data/workouts';
 import { selectWorkout } from '@/services/selectWorkout';
+import { suggestNow, type Suggestion } from '@/services/suggestNow';
 import { useDailyStore } from '@/state/dailyStore';
 import { usePagerStore } from '@/state/pagerStore';
 import { useUserStore } from '@/state/userStore';
+import type { CyclePhase } from '@/types/domain';
 import { computePhase } from '@/utils/cycle';
+import { BodyContextCard } from './today/BodyContextCard';
 import { CyclePhaseCard } from './today/CyclePhaseCard';
-import { PetGreeting } from './today/PetGreeting';
+import { RightNowSection } from './today/RightNowSection';
 import { StreakBadge } from './today/StreakBadge';
 import { TaskRow } from './today/TaskRow';
 import { WaterTracker } from './today/WaterTracker';
@@ -31,7 +34,7 @@ export function TodayScreen() {
   const goTo = usePagerStore((s) => s.goTo);
 
   const today = useMemo(() => {
-    void entries; // re-compute when entries map changes
+    void entries;
     return getToday();
   }, [entries, getToday]);
 
@@ -61,6 +64,44 @@ export function TodayScreen() {
     0,
   );
 
+  const suggestions = useMemo(
+    () =>
+      suggestNow({
+        now: new Date(),
+        profile,
+        phase: phaseInfo,
+        today,
+        waterGoal,
+        workout,
+      }),
+    [profile, phaseInfo, today, waterGoal, workout],
+  );
+
+  const greeting = useMemo(
+    () => buildGreeting(profile.name, phaseInfo?.phase ?? null, new Date()),
+    [profile.name, phaseInfo],
+  );
+
+  const onSuggestion = (s: Suggestion) => {
+    switch (s.action.kind) {
+      case 'open-workout':
+        goTo('workout');
+        break;
+      case 'open-luna':
+        goTo('luna');
+        break;
+      case 'add-water':
+        addWater(1);
+        break;
+      case 'toggle-task':
+        toggleTask(s.action.task);
+        break;
+      case 'acknowledge':
+        // No state change — the card itself is the reminder.
+        break;
+    }
+  };
+
   return (
     <SafeAreaView
       edges={['top', 'left', 'right']}
@@ -71,51 +112,62 @@ export function TodayScreen() {
           {t('screens.today').toUpperCase()}
         </Text>
         <Text variant="display" style={{ marginTop: 6 }}>
-          {greet(profile.name)}
+          {greeting.lead}
         </Text>
+        {greeting.tail ? (
+          <Text variant="body" color="textMuted" style={{ marginTop: 6 }}>
+            {greeting.tail}
+          </Text>
+        ) : null}
 
-        <View style={{ marginTop: 24, gap: 14 }}>
-          <PetGreeting
-            petName={profile.pet?.name ?? 'Luna'}
-            petAvatar={profile.pet?.avatar ?? '🌙'}
-            userName={profile.name}
-            phase={phaseInfo?.phase ?? null}
-          />
+        <View style={{ marginTop: 24 }}>
+          <RightNowSection suggestions={suggestions} onPress={onSuggestion} />
+        </View>
 
-          {phaseInfo ? <CyclePhaseCard info={phaseInfo} /> : null}
-
-          <View style={{ gap: 10, marginTop: 6 }}>
-            <Text variant="overline" color="textMuted">
-              BUGÜNÜN GÖREVLERİ
-            </Text>
-            <WorkoutTaskCard
-              workout={workout}
-              completedCount={completedExercises}
-              taskComplete={today.tasks.workout}
-              onOpen={() => goTo('workout')}
-              onToggleTask={() => toggleTask('workout')}
-            />
-            <TaskRow
-              label={t('tasks.nutrition')}
-              hint="Öğünleri takip et"
-              completed={today.tasks.nutrition}
-              onToggle={() => toggleTask('nutrition')}
-            />
-            <TaskRow
-              label={t('tasks.study')}
-              hint="15–30 dakika odaklanma"
-              completed={today.tasks.study}
-              onToggle={() => toggleTask('study')}
-            />
+        {phaseInfo ? (
+          <View style={{ marginTop: 24 }}>
+            <BodyContextCard info={phaseInfo} />
           </View>
+        ) : null}
 
+        {phaseInfo ? (
+          <View style={{ marginTop: 14 }}>
+            <CyclePhaseCard info={phaseInfo} />
+          </View>
+        ) : null}
+
+        <View style={{ marginTop: 24, gap: 10 }}>
+          <Text variant="overline" color="textMuted">
+            BUGÜNÜN GÖREVLERİ
+          </Text>
+          <WorkoutTaskCard
+            workout={workout}
+            completedCount={completedExercises}
+            taskComplete={today.tasks.workout}
+            onOpen={() => goTo('workout')}
+            onToggleTask={() => toggleTask('workout')}
+          />
+          <TaskRow
+            label={t('tasks.nutrition')}
+            hint="Öğünleri takip et"
+            completed={today.tasks.nutrition}
+            onToggle={() => toggleTask('nutrition')}
+          />
+          <TaskRow
+            label={t('tasks.study')}
+            hint="15–30 dakika odaklanma"
+            completed={today.tasks.study}
+            onToggle={() => toggleTask('study')}
+          />
+        </View>
+
+        <View style={{ marginTop: 14, gap: 14 }}>
           <WaterTracker
             cups={today.waterCups}
             goal={waterGoal}
             onAdd={() => addWater(1)}
             onRemove={() => addWater(-1)}
           />
-
           <StreakBadge current={streak.current} />
         </View>
       </ScrollView>
@@ -123,11 +175,32 @@ export function TodayScreen() {
   );
 }
 
-function greet(name: string | undefined): string {
-  const hour = new Date().getHours();
-  const prefix =
-    hour < 6 ? 'İyi geceler' : hour < 12 ? 'Günaydın' : hour < 18 ? 'Merhaba' : 'İyi akşamlar';
-  return name ? `${prefix}, ${name}.` : `${prefix}.`;
+const PHASE_TAIL: Record<CyclePhase, string> = {
+  menstrual: 'Bugün kendine yumuşak ol.',
+  follicular: 'Enerjin yükseliyor — yeni şeylere açıksın.',
+  ovulation: 'Tepe haftandasın, en güçlü hâlin.',
+  luteal: 'Yavaşla, sezgilerine güven.',
+};
+
+function buildGreeting(
+  name: string | undefined,
+  phase: CyclePhase | null,
+  now: Date,
+): { lead: string; tail: string | null } {
+  const hour = now.getHours();
+  const word =
+    hour < 5
+      ? 'Hâlâ ayakta mısın'
+      : hour < 12
+        ? 'Günaydın'
+        : hour < 18
+          ? 'Merhaba'
+          : hour < 22
+            ? 'İyi akşamlar'
+            : 'Gece geç oldu';
+  const lead = name ? `${word}, ${name}.` : `${word}.`;
+  const tail = phase ? PHASE_TAIL[phase] : null;
+  return { lead, tail };
 }
 
 const styles = StyleSheet.create({
