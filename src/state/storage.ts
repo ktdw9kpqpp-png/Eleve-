@@ -1,23 +1,29 @@
-import Constants from 'expo-constants';
 import type { StateStorage } from 'zustand/middleware';
 
-// Storage backend selection:
-//   - Dev client / standalone build → react-native-mmkv (sync, fast, encrypted)
-//   - Expo Go → AsyncStorage (MMKV's JSI binding isn't included in Go)
-// Both are exposed through the same StateStorage shape; zustand's persist
-// middleware accepts sync or async values from getItem.
+// Storage backend selection (defensive):
+//   - Try MMKV first — fast, sync, encrypted; lives natively in dev/standalone builds.
+//   - On any error (Expo Go can't load the JSI module), fall back to AsyncStorage.
+// Both expose the StateStorage shape; zustand persist accepts sync or async values.
 
-const isExpoGo = Constants.appOwnership === 'expo';
+export const zustandStorage: StateStorage = pickBackend();
 
-export const zustandStorage: StateStorage = isExpoGo
-  ? createAsyncStorageBackend()
-  : createMMKVBackend();
+function pickBackend(): StateStorage {
+  try {
+    const mmkv = createMMKV();
+    if (mmkv) return mmkv;
+  } catch {
+    // MMKV not available — fall through to AsyncStorage.
+  }
+  return createAsyncBackend();
+}
 
-function createMMKVBackend(): StateStorage {
-  // Dynamic require so Expo Go doesn't try to register the missing native
-  // module at module-load time.
-  const { MMKV } = require('react-native-mmkv') as typeof import('react-native-mmkv');
-  const mmkv = new MMKV({ id: 'eleve' });
+function createMMKV(): StateStorage | null {
+  // Dynamic require so the JSI module isn't touched if it's missing.
+  const mod = require('react-native-mmkv') as typeof import('react-native-mmkv');
+  const mmkv = new mod.MMKV({ id: 'eleve' });
+  // Probe with a write; if the host function throws, we'll catch above.
+  mmkv.set('__probe__', '1');
+  mmkv.delete('__probe__');
   return {
     getItem: (name) => mmkv.getString(name) ?? null,
     setItem: (name, value) => mmkv.set(name, value),
@@ -25,10 +31,9 @@ function createMMKVBackend(): StateStorage {
   };
 }
 
-function createAsyncStorageBackend(): StateStorage {
-  const AsyncStorage =
-    require('@react-native-async-storage/async-storage')
-      .default as typeof import('@react-native-async-storage/async-storage').default;
+function createAsyncBackend(): StateStorage {
+  const AsyncStorage = require('@react-native-async-storage/async-storage')
+    .default as typeof import('@react-native-async-storage/async-storage').default;
   return {
     getItem: (name) => AsyncStorage.getItem(name),
     setItem: (name, value) => AsyncStorage.setItem(name, value),
