@@ -100,6 +100,10 @@ export type ChatMessage = {
 
 export type TaskKind = 'workout' | 'nutrition' | 'study';
 
+export type DailyMood = 'great' | 'low' | 'crisis';
+export type SleepSignal = 'mild' | 'severe';
+export type StressSignal = 'medium' | 'high';
+
 export type DailyEntry = {
   /** ISO date string, YYYY-MM-DD, device-local. */
   date: string;
@@ -114,6 +118,17 @@ export type DailyEntry = {
   /** Workout chosen for today (catalog id) and per-exercise completion. */
   selectedWorkoutId: string | null;
   exerciseProgress: Record<number, boolean>;
+  /** Daily state signals — set from natural-language cues. Reset each day. */
+  sleepSignal: SleepSignal | null;
+  stressSignal: StressSignal | null;
+  mood: DailyMood | null;
+  /** True when Luna detects a recovery situation (alcohol, sore, severe sleep
+   * deficit, illness). Today screen pulls back task pressure when set. */
+  recoveryMode: boolean;
+  /** Free-form context tags Luna picked up: "alcohol", "travel", "busy",
+   * "period_started", "grief". The system prompt forwards these so Luna can
+   * react contextually without re-asking. */
+  contextTags: string[];
 };
 
 export type StreakState = {

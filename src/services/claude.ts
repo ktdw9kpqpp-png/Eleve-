@@ -3,7 +3,7 @@ import { getAnthropicApiKey } from '@/utils/env';
 
 const API_URL = 'https://api.anthropic.com/v1/messages';
 const API_VERSION = '2023-06-01';
-const DEFAULT_MODEL = 'claude-sonnet-4-5';
+const DEFAULT_MODEL = 'claude-sonnet-4-20250514';
 const DEFAULT_MAX_TOKENS = 1024;
 
 export class ClaudeError extends Error {

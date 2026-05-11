@@ -14,9 +14,10 @@ import { useTheme } from '@/theme';
 
 type Props = {
   petAvatar: string;
+  petName?: string;
 };
 
-export function TypingIndicator({ petAvatar }: Props) {
+export function TypingIndicator({ petAvatar, petName = 'Luna' }: Props) {
   const theme = useTheme();
   return (
     <View style={styles.row}>
@@ -33,6 +34,9 @@ export function TypingIndicator({ petAvatar }: Props) {
           },
         ]}
       >
+        <Text variant="caption" color="textMuted" style={{ marginRight: 4 }}>
+          {petName} yazıyor
+        </Text>
         <Dot delay={0} />
         <Dot delay={150} />
         <Dot delay={300} />
@@ -75,6 +79,7 @@ const styles = StyleSheet.create({
   },
   bubble: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 12,

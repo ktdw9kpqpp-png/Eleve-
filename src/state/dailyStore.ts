@@ -41,7 +41,16 @@ function emptyEntry(date: string): DailyEntry {
     planNote: null,
     selectedWorkoutId: null,
     exerciseProgress: {},
+    sleepSignal: null,
+    stressSignal: null,
+    mood: null,
+    recoveryMode: false,
+    contextTags: [],
   };
+}
+
+function addTag(tags: string[], tag: string): string[] {
+  return tags.includes(tag) ? tags : [...tags, tag];
 }
 
 export const useDailyStore = create<DailyState>()(
@@ -96,7 +105,7 @@ export const useDailyStore = create<DailyState>()(
       applyIntent: (intent) => {
         const today = todayIso();
         const current = get().entries[today] ?? emptyEntry(today);
-        const patch = intentToPatch(intent);
+        const patch = intentToPatch(intent, current);
         if (!patch) return { applied: false };
         // If the override changes the planned type or location, invalidate the
         // current pick so the Workout screen re-runs selection.
@@ -192,15 +201,30 @@ export const useDailyStore = create<DailyState>()(
 );
 
 type EntryPatch = Partial<
-  Pick<DailyEntry, 'plannedWorkoutType' | 'plannedIntensity' | 'plannedLocation' | 'planNote'>
+  Pick<
+    DailyEntry,
+    | 'plannedWorkoutType'
+    | 'plannedIntensity'
+    | 'plannedLocation'
+    | 'planNote'
+    | 'sleepSignal'
+    | 'stressSignal'
+    | 'mood'
+    | 'recoveryMode'
+    | 'contextTags'
+  >
 >;
 
 /**
- * Map a detected intent to a DailyEntry patch. Only workout-affecting intents
- * produce a patch; informational intents (questions, cravings) return null so
- * the UI can still react but the daily plan is untouched.
+ * Map a detected intent to a DailyEntry patch. Lifestyle/emotional intents
+ * lean on recoveryMode + planNote rather than swapping the workout outright,
+ * so Luna's textual reply can still ask the user how they want to proceed.
+ *
+ * Permission-asking is left to Luna (the LLM) — the system prompt instructs
+ * her to ask "should I keep this for next time?" before promoting daily
+ * signals to persistent prefs in userStore.
  */
-function intentToPatch(intent: Intent): EntryPatch | null {
+function intentToPatch(intent: Intent, current: DailyEntry): EntryPatch | null {
   switch (intent.kind) {
     case 'focus':
       return {
@@ -212,6 +236,7 @@ function intentToPatch(intent: Intent): EntryPatch | null {
       return {
         plannedWorkoutType: 'restorative',
         plannedIntensity: 'low',
+        recoveryMode: true,
         planNote: intent.scope === 'week' ? 'Bu hafta toparlanma önceliği' : 'Bugün toparlanma',
       };
     case 'injury': {
@@ -227,6 +252,96 @@ function intentToPatch(intent: Intent): EntryPatch | null {
         plannedLocation: intent.location,
         planNote: `Lokasyon: ${intent.location}`,
       };
+
+    // ── Acute lifestyle ────────────────────────────────────────────────────
+    case 'alcohol':
+      return {
+        plannedWorkoutType: 'walk',
+        plannedIntensity: 'low',
+        recoveryMode: true,
+        planNote: 'Toparlanma günü — su, hafif yürüyüş, mobilite',
+        contextTags: addTag(current.contextTags, 'alcohol'),
+      };
+    case 'poor_sleep': {
+      const severe = intent.severity === 'severe';
+      return {
+        plannedWorkoutType: severe ? 'restorative' : 'walk',
+        plannedIntensity: 'low',
+        sleepSignal: intent.severity,
+        recoveryMode: severe,
+        planNote: severe
+          ? 'Az uyku — ağır antrenman yerine mobilite/yürüyüş'
+          : 'Yorgunluk için yoğunluk düşürüldü',
+        contextTags: addTag(current.contextTags, 'poor_sleep'),
+      };
+    }
+    case 'high_stress': {
+      const high = intent.level === 'high';
+      return {
+        plannedWorkoutType: high ? 'yoga' : null,
+        plannedIntensity: 'low',
+        stressSignal: intent.level,
+        recoveryMode: high,
+        planNote: high
+          ? 'Stres yüksek — sinir sistemini yatıştırma önceliği'
+          : 'Stres var — yoğunluk hafifletildi',
+        contextTags: addTag(current.contextTags, 'stress'),
+      };
+    }
+    case 'sore': {
+      const target = soreSafeWorkout(intent.bodyPart);
+      return {
+        plannedWorkoutType: target,
+        plannedIntensity: 'low',
+        planNote: 'Kas tutulumu — toparlanma odaklı',
+        contextTags: addTag(current.contextTags, 'sore'),
+      };
+    }
+    case 'busy_week':
+      return {
+        planNote: 'Yoğun hafta — kısa ve esnek planlama',
+        contextTags: addTag(current.contextTags, 'busy_week'),
+      };
+    case 'travel':
+      return {
+        plannedLocation: 'home',
+        plannedWorkoutType: 'walk',
+        planNote: 'Seyahat modu — odada yapılabilir, yürüyüş',
+        contextTags: addTag(current.contextTags, 'travel'),
+      };
+    case 'period_started':
+      return {
+        plannedWorkoutType: 'yoga',
+        plannedIntensity: 'low',
+        recoveryMode: true,
+        planNote: 'Adet başlangıcı — yumuşak hareket, sıcak içecek, dinlenme',
+        contextTags: addTag(current.contextTags, 'period_started'),
+      };
+
+    // ── Emotional ───────────────────────────────────────────────────────────
+    case 'emotional_crisis':
+      return {
+        plannedWorkoutType: 'restorative',
+        plannedIntensity: 'low',
+        mood: 'crisis',
+        recoveryMode: true,
+        planNote: 'Bugün sadece yanındayım. Görev / streak baskısı yok.',
+        contextTags: addTag(current.contextTags, 'crisis'),
+      };
+    case 'low_mood':
+      return {
+        plannedIntensity: 'low',
+        mood: 'low',
+        planNote: 'Moralin düşük — yumuşak gün, küçük adımlar',
+        contextTags: addTag(current.contextTags, 'low_mood'),
+      };
+    case 'feeling_great':
+      return {
+        mood: 'great',
+        planNote: 'Enerjin yüksek — hedefini biraz yukarı çekmek istersin?',
+      };
+
+    // ── Pure-conversational intents (no plan change) ───────────────────────
     case 'reschedule':
     case 'missed_session':
     case 'overate':
@@ -257,4 +372,12 @@ function injurySafeWorkout(part: BodyPart) {
     default:
       return 'restorative' as const;
   }
+}
+
+function soreSafeWorkout(part: BodyPart | null) {
+  // Soreness ≠ injury — DOMS just wants gentle movement, not full rest.
+  if (!part) return 'walk' as const;
+  if (part === 'lower-back') return 'restorative' as const;
+  if (part === 'knee' || part === 'ankle' || part === 'hip') return 'swim' as const;
+  return 'walk' as const;
 }

@@ -63,9 +63,11 @@ export const useChatStore = create<ChatState>()(
         const systemPrompt = buildSystemPrompt(ctx);
 
         try {
+          // Keep only the last 10 messages so each request stays small.
+          const historyTail = get().messages.slice(-10);
           const res = await sendCoachMessage({
             systemPrompt,
-            messages: [...get().messages],
+            messages: historyTail,
           });
           const assistantMsg: ChatMessage = {
             id: id(),

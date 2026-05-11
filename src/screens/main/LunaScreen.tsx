@@ -17,7 +17,6 @@ import { useUserStore } from '@/state/userStore';
 import { computePhase } from '@/utils/cycle';
 import { ChatInput } from './luna/ChatInput';
 import { MessageBubble } from './luna/MessageBubble';
-import { QuickChips } from './luna/QuickChips';
 import { TypingIndicator } from './luna/TypingIndicator';
 
 export function LunaScreen() {
@@ -130,7 +129,9 @@ export function LunaScreen() {
           ) : (
             messages.map((m) => <MessageBubble key={m.id} message={m} petAvatar={petAvatar} />)
           )}
-          {status === 'sending' ? <TypingIndicator petAvatar={petAvatar} /> : null}
+          {status === 'sending' ? (
+            <TypingIndicator petAvatar={petAvatar} petName={petName} />
+          ) : null}
         </ScrollView>
 
         {error ? (
@@ -152,7 +153,6 @@ export function LunaScreen() {
           </Pressable>
         ) : null}
 
-        <QuickChips onPick={onSend} disabled={status === 'sending'} />
         <ChatInput onSend={onSend} disabled={status === 'sending'} />
       </KeyboardAvoidingView>
     </SafeAreaView>
