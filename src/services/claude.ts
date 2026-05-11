@@ -50,6 +50,7 @@ export async function sendCoachMessage(
   input: SendCoachMessageInput,
 ): Promise<SendCoachMessageResult> {
   const apiKey = getAnthropicApiKey();
+  console.log('[claude] apiKey:', apiKey);
   if (!apiKey) {
     throw new ClaudeError('ANTHROPIC_API_KEY is not configured. Check .env.');
   }
@@ -62,15 +63,25 @@ export async function sendCoachMessage(
     ...(input.temperature !== undefined ? { temperature: input.temperature } : {}),
   };
 
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': API_VERSION,
-    },
-    body: JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': API_VERSION,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (networkErr) {
+    console.error('[claude] network error before response', {
+      url: API_URL,
+      model: body.model,
+      err: networkErr instanceof Error ? { name: networkErr.name, message: networkErr.message } : networkErr,
+    });
+    throw networkErr;
+  }
 
   if (!res.ok) {
     let payload: unknown;
@@ -79,6 +90,14 @@ export async function sendCoachMessage(
     } catch {
       payload = await res.text();
     }
+    console.error('[claude] request failed', {
+      status: res.status,
+      statusText: res.statusText,
+      url: API_URL,
+      model: body.model,
+      messageCount: body.messages.length,
+      payload,
+    });
     throw new ClaudeError(`Claude API error (${res.status})`, res.status, payload);
   }
 
