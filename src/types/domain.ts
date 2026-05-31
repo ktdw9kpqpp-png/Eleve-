@@ -1,0 +1,148 @@
+// Domain types seeded from eleve-claude-code-prompt.pdf (spec §5, §7, §8, §9, §10.3).
+// Contracts only — no implementations yet.
+
+export type CyclePhase = 'menstrual' | 'follicular' | 'ovulation' | 'luteal';
+
+export type WorkoutType =
+  | 'pilates'
+  | 'yoga'
+  | 'hiit'
+  | 'strength'
+  | 'swim'
+  | 'run'
+  | 'dance'
+  | 'walk'
+  | 'restorative';
+
+export type FitnessLevel = 'beginner' | 'intermediate' | 'advanced';
+export type Location = 'home' | 'studio' | 'gym' | 'outdoor' | 'pool';
+export type Intensity = 'low' | 'medium' | 'high';
+
+export type Exercise = {
+  name: string;
+  sets: number;
+  reps: string;
+  rest: string;
+  note?: string;
+  videoUrl?: string;
+};
+
+export type Workout = {
+  id: string;
+  name: string;
+  duration: number;
+  intensity: Intensity;
+  type: WorkoutType;
+  location: Location[];
+  level: FitnessLevel;
+  calories: number;
+  phase: CyclePhase[];
+  exercises: Exercise[];
+  /** Recovery workouts that bypass the location filter — they can be done
+   * anywhere (e.g., restorative, yin yoga, walking). */
+  alwaysAvailable?: boolean;
+};
+
+export type DietaryPreference = 'vegetarian' | 'vegan' | 'gluten-free' | 'none';
+
+export type UserProfile = {
+  id: string;
+  name: string;
+  age: number;
+  height: number;
+  weight: number;
+  goals: string[];
+  fitnessLevel: FitnessLevel;
+  preferredWorkouts: WorkoutType[];
+  workoutLocation: Location;
+  weeklyFrequency: number;
+  cycle: {
+    lastPeriodStart: string | null;
+    averageCycleDays: number;
+  };
+  healthConditions: string[];
+  allergies: string[];
+  dietary: DietaryPreference[];
+  dislikedFoods: string[];
+  lifestyle: 'sedentary' | 'active';
+  sleepPattern: 'regular' | 'irregular';
+  stressLevel: 'low' | 'medium' | 'high';
+  preferredWorkoutTime: 'morning' | 'midday' | 'evening' | 'flexible';
+  pet: {
+    name: string;
+    avatar: string;
+    playful: number;
+    calm: number;
+  };
+};
+
+export type BehaviorPatterns = {
+  mostSkippedDay: string | null;
+  preferredWorkoutTime: UserProfile['preferredWorkoutTime'];
+  energyPattern: string | null;
+  commonComplaints: string[];
+  completionRate: {
+    workout: number;
+    meal: number;
+    study: number;
+  };
+  streakBreakers: string[];
+};
+
+export type ChatRole = 'user' | 'assistant';
+
+export type ChatMessage = {
+  id: string;
+  role: ChatRole;
+  content: string;
+  createdAt: number;
+};
+
+export type TaskKind = 'workout' | 'nutrition' | 'study';
+
+export type DailyMood = 'great' | 'low' | 'crisis';
+export type SleepSignal = 'mild' | 'severe';
+export type StressSignal = 'medium' | 'high';
+
+export type DailyEntry = {
+  /** ISO date string, YYYY-MM-DD, device-local. */
+  date: string;
+  tasks: Record<TaskKind, boolean>;
+  waterCups: number;
+  /** Luna-managed daily overrides from detected intents (§4.2). */
+  plannedWorkoutType: WorkoutType | null;
+  plannedIntensity: Intensity | null;
+  plannedLocation: Location | null;
+  /** Short human-readable reason for the current override (for UI hints). */
+  planNote: string | null;
+  /** Workout chosen for today (catalog id) and per-exercise completion. */
+  selectedWorkoutId: string | null;
+  exerciseProgress: Record<number, boolean>;
+  /** Daily state signals — set from natural-language cues. Reset each day. */
+  sleepSignal: SleepSignal | null;
+  stressSignal: StressSignal | null;
+  mood: DailyMood | null;
+  /** True when Luna detects a recovery situation (alcohol, sore, severe sleep
+   * deficit, illness). Today screen pulls back task pressure when set. */
+  recoveryMode: boolean;
+  /** Free-form context tags Luna picked up: "alcohol", "travel", "busy",
+   * "period_started", "grief". The system prompt forwards these so Luna can
+   * react contextually without re-asking. */
+  contextTags: string[];
+};
+
+export type StreakState = {
+  current: number;
+  /** ISO date of the last day that contributed to the streak. */
+  lastActiveDate: string | null;
+};
+
+export type PhaseInfo = {
+  phase: CyclePhase;
+  dayInCycle: number;
+  dayInPhase: number;
+  phaseLength: number;
+  /** Energy %, per spec §7.1. */
+  energy: number;
+  cycleLength: number;
+};

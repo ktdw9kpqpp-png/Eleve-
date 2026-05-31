@@ -1,0 +1,40 @@
+{
+  "app": {
+    "name": "Eleve",
+    "tagline": "Hayatını senin yerine organize eden AI"
+  },
+  "screens": {
+    "today": "Bugün",
+    "luna": "Luna",
+    "workout": "Antrenman",
+    "calendar": "Takvim",
+    "progress": "Gelişim",
+    "body": "Beden"
+  },
+  "onboarding": {
+    "welcome": "Hoş geldin",
+    "subtitle": "Seni tanıyalım ki seni senden iyi bilelim.",
+    "skipToApp": "Uygulamayı keşfet (dev)"
+  },
+  "cycle": {
+    "phase": {
+      "menstrual": "Adet",
+      "follicular": "Foliküler",
+      "ovulation": "Ovülasyon",
+      "luteal": "Luteal"
+    },
+    "energy": "Enerji"
+  },
+  "tasks": {
+    "workout": "Antrenman",
+    "nutrition": "Beslenme",
+    "study": "Çalışma",
+    "water": "Su"
+  },
+  "common": {
+    "continue": "Devam",
+    "skip": "Atla",
+    "done": "Tamam",
+    "cancel": "İptal"
+  }
+}
